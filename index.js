@@ -80,3 +80,75 @@ app.post("/webhook",(req,res)=>{ //i want some
 app.get("/",(req,res)=>{
     res.status(200).send("hello this is webhook setup");
 });
+
+app.post("/send-message", (req, res) => {
+    const phoneNumber = req.body.phoneNumber;
+    const messageBody = req.body.message; // Expecting the message body to be sent in the request
+
+    // Ensure the phone number ID is correctly specified (replace 'YOUR_PHONE_NUMBER_ID')
+    const phoneNoId = '339788665888060';
+
+    // Check if the message is being sent within the 24-hour window or needs a template
+    const sendMessage = () => {
+        axios({
+            method: "POST",
+            url: `https://graph.facebook.com/v13.0/${phoneNoId}/messages?access_token=${token}`,
+            data: {
+                messaging_product: "whatsapp",
+                to: phoneNumber,
+                text: {
+                    body: messageBody
+                }
+            },
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+        .then(response => {
+            console.log("Message sent successfully:", response.data);
+            res.status(200).send("Message sent successfully");
+        })
+        .catch(error => {
+            const errorCode = error.response.data.error.code;
+            const errorTitle = error.response.data.error.error_data.details;
+
+            if (errorCode === 131047 && errorTitle.includes('24 hours')) {
+                sendTemplateMessage();
+            } else {
+                console.error("Error sending message:", error.response ? error.response.data : error.message);
+                res.status(500).send("Error sending message");
+            }
+        });
+    };
+
+    const sendTemplateMessage = () => {
+        axios({
+            method: "POST",
+            url: `https://graph.facebook.com/v13.0/${phoneNoId}/messages?access_token=${token}`,
+            data: {
+                messaging_product: "whatsapp",
+                to: phoneNumber,
+                type: "template",
+                template: {
+                    name: templateName,
+                    language: {
+                        code: "en_US"
+                    }
+                }
+            },
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+        .then(response => {
+            console.log("Template message sent successfully:", response.data);
+            res.status(200).send("Template message sent successfully");
+        })
+        .catch(error => {
+            console.error("Error sending template message:", error.response ? error.response.data : error.message);
+            res.status(500).send("Error sending template message");
+        });
+    };
+
+    sendMessage();
+});
